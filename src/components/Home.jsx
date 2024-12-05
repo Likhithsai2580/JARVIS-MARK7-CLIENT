@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
@@ -10,6 +10,24 @@ const Home = () => {
     network: { status: 'checking', value: false },
     initialization: { status: 'checking', value: 0 }
   });
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [password, setPassword] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const videoRef = useRef(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [failedFaceAttempts, setFailedFaceAttempts] = useState(0);
+  const [requiresTraditionalLogin, setRequiresTraditionalLogin] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [username, setUsername] = useState('');
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [showTraditionalLogin, setShowTraditionalLogin] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [email, setEmail] = useState('');
 
   // System checks simulation
   useEffect(() => {
@@ -136,6 +154,516 @@ const Home = () => {
     </motion.div>
   );
 
+  // Add function to start camera
+  const startCamera = useCallback(async () => {
+    console.log('Starting camera...');
+    try {
+      if (videoRef.current?.srcObject) {
+        // If camera is already running, stop it first
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded');
+          setIsCameraActive(true);
+        };
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setCameraError(error.message);
+      setSystemChecks(prev => ({
+        ...prev,
+        security: { status: 'error', value: 'Camera access denied' }
+      }));
+    }
+  }, []);
+
+  // Add function to stop camera
+  const stopCamera = useCallback(() => {
+    console.log('Stopping camera...');
+    if (videoRef.current?.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      setIsCameraActive(false);
+    }
+  }, []);
+
+  // Update the captureFrame function
+  const captureFrame = useCallback(() => {
+    console.log('Attempting to capture frame...');
+    if (!videoRef.current || !isCameraActive) {
+        console.error('Video reference not available or camera not active');
+        return null;
+    }
+
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Could not get canvas context');
+            return null;
+        }
+        
+        // Draw the video frame to canvas
+        ctx.drawImage(videoRef.current, 0, 0);
+        
+        // Convert to base64
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        console.log('Frame captured successfully');
+        return imageData;
+    } catch (error) {
+        console.error('Error capturing frame:', error);
+        return null;
+    }
+  }, [isCameraActive]);
+
+  // Updated handleRegistration function
+  const handleRegistration = async () => {
+    setIsProcessing(true);
+    console.log('Starting registration process...');
+
+    try {
+      if (!username || !password || !email) {
+        console.error('Missing required fields');
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'error', value: 'Username, email and password are required' }
+        }));
+        setIsProcessing(false);
+        return;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'error', value: 'Please enter a valid email address' }
+        }));
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!isCameraActive) {
+        console.log('Camera not active, starting camera...');
+        await startCamera();
+      }
+
+      // Ensure camera is active before capturing
+      if (!isCameraActive) {
+        console.error('Camera failed to start');
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'error', value: 'Camera failed to start' }
+        }));
+        setIsProcessing(false);
+        return;
+      }
+
+      // Capture image from video stream
+      const imageData = captureFrame();
+      if (!imageData) {
+        console.error('Failed to capture image');
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'error', value: 'Failed to capture image' }
+        }));
+        setIsProcessing(false);
+        return;
+      }
+
+      // Send registration request
+      console.log('Sending registration request to server...');
+      const response = await fetch('http://localhost:5001/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mode: 'register',
+          username: username,
+          email: email,
+          password: password,
+          faceImage: imageData
+        })
+      });
+
+      const data = await response.json();
+      console.log('Registration response:', data);
+
+      if (data.success) {
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'complete', value: 'Registration successful' }
+        }));
+        setShowAuth(false);
+        stopCamera();
+        setIsRegistering(false);
+      } else {
+        setSystemChecks(prev => ({
+          ...prev,
+          security: { status: 'error', value: data.error || 'Registration failed' }
+        }));
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setSystemChecks(prev => ({
+        ...prev,
+        security: { status: 'error', value: 'Registration failed: ' + error.message }
+      }));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Add this function to handle face login response
+  const handleFaceLoginResponse = async (response) => {
+    if (response.success) {
+      setLoginSuccess(true);
+      setCurrentUser(response.username);
+      setShowAuth(false);
+      setFailedAttempts(0);
+    } else {
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      
+      if (newAttempts >= 5) {
+        setShowTraditionalLogin(true);
+      }
+    }
+  };
+
+  // Add traditional login handler
+  const handleTraditionalLogin = async () => {
+    try {
+      setIsProcessing(true);
+      const response = await fetch('http://127.0.0.1:5001/traditional_login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.message === 'Traditional login successful') {
+        setLoginSuccess(true);
+        setCurrentUser(data.username);
+        setShowAuth(false);
+      } else {
+        alert(data.error || 'Login failed');
+      }
+    } catch (error) {
+      alert('Login failed: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Update the renderAuthUI function
+  const renderAuthUI = () => {
+    return (
+      <motion.div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div
+          className="bg-gray-900/95 p-8 rounded-lg shadow-xl max-w-md w-full mx-4"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+        >
+          <h2 className="text-2xl font-bold mb-6 text-blue-400">
+            {isRegistering ? "Register" : (showTraditionalLogin ? "Traditional Login" : "Face Recognition Login")}
+          </h2>
+
+          {isRegistering ? (
+            // Registration Form
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+              />
+              <div className="relative w-full aspect-video bg-black/20 rounded-lg overflow-hidden">
+                <video
+                  key="registration-video"
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                  onLoadedMetadata={() => {
+                    console.log('Video metadata loaded');
+                    setIsCameraActive(true);
+                  }}
+                />
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="w-64 h-64 border-2 border-dashed border-blue-500/50 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-500/70 text-sm mt-36">
+                    Position your face within the circle
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleRegistration}
+                disabled={isProcessing}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded disabled:opacity-50"
+              >
+                {isProcessing ? "Processing..." : "Register"}
+              </button>
+            </div>
+          ) : showTraditionalLogin ? (
+            // Traditional Login Form
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+              />
+              <button
+                onClick={handleTraditionalLogin}
+                disabled={isProcessing}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded"
+              >
+                {isProcessing ? "Processing..." : "Login"}
+              </button>
+            </div>
+          ) : (
+            // Face Recognition Login
+            <div className="space-y-4">
+              <div className="relative w-full aspect-video bg-black/20 rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="w-64 h-64 border-2 border-dashed border-blue-500/50 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-500/70 text-sm mt-36">
+                    Position your face within the circle
+                  </div>
+                </div>
+              </div>
+              {failedAttempts > 0 && (
+                <div className="text-red-400 text-sm text-center">
+                  Failed attempts: {failedAttempts}/5
+                  {failedAttempts >= 5 && (
+                    <button
+                      onClick={() => setShowTraditionalLogin(true)}
+                      className="ml-2 text-blue-400 hover:text-blue-300"
+                    >
+                      Switch to traditional login
+                    </button>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={handleFaceLogin}
+                disabled={isProcessing}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded"
+              >
+                {isProcessing ? "Processing..." : "Verify Face"}
+              </button>
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-between items-center">
+            <button
+              onClick={() => {
+                setShowAuth(false);
+                stopCamera();
+                setFailedAttempts(0);
+                setShowTraditionalLogin(false);
+                setIsRegistering(false);
+              }}
+              className="text-gray-400 hover:text-gray-300"
+            >
+              Cancel
+            </button>
+            {!isRegistering && !showTraditionalLogin && (
+              <button
+                onClick={() => {
+                  setIsRegistering(true);
+                  startCamera();
+                }}
+                className="text-blue-400 hover:text-blue-300"
+              >
+                Register New User
+              </button>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
+  // Add greeting component
+  const Greeting = () => {
+    if (!currentUser) return null;
+    
+    return (
+      <div className="absolute bottom-8 left-8 text-xl text-blue-400">
+        Hello, {currentUser}
+      </div>
+    );
+  };
+
+  // Clean up camera on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      // Clean up any other resources
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stopCamera]);
+
+  // Update the handleAuth function
+  const handleAuth = async () => {
+    setIsProcessing(true);
+    try {
+        const imageData = captureFrame();
+        if (!imageData) {
+            console.error('No image data captured');
+            setSystemChecks(prev => ({
+                ...prev,
+                security: { status: 'error', value: 'Failed to capture image' }
+            }));
+            setIsProcessing(false);
+            return;
+        }
+
+        console.log('Sending auth request...');
+        const response = await fetch('http://localhost:5001/auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                mode: 'login',
+                faceImage: imageData
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            setShowAuth(false);
+            stopCamera();
+            setSystemChecks(prev => ({
+                ...prev,
+                security: { status: 'complete', value: 'Authentication successful' }
+            }));
+        } else {
+            setSystemChecks(prev => ({
+                ...prev,
+                security: { status: 'error', value: data.error || 'Authentication failed' }
+            }));
+        }
+    } catch (error) {
+        console.error('Authentication error:', error);
+        setSystemChecks(prev => ({
+            ...prev,
+            security: { status: 'error', value: 'Authentication failed' }
+        }));
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleFaceLogin = async () => {
+    try {
+      setIsProcessing(true);
+      const imageData = captureFrame();
+      
+      const response = await fetch('http://localhost:5001/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mode: 'login',
+          faceImage: imageData
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setLoginSuccess(true);
+        setCurrentUser(data.username);
+        setShowAuth(false);
+        setFailedAttempts(0);
+        stopCamera();
+      } else {
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+        
+        if (newAttempts >= 5) {
+          setShowTraditionalLogin(true);
+        }
+      }
+    } catch (error) {
+      console.error('Face login error:', error);
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      
+      if (newAttempts >= 5) {
+        setShowTraditionalLogin(true);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen bg-[#000913] overflow-hidden font-roboto">
       {/* Background Grid */}
@@ -193,56 +721,74 @@ const Home = () => {
         )}
       </AnimatePresence>
 
-      {/* Time Display */}
-      <div className="absolute top-5 right-8 text-[#00a8ff] z-50 flex flex-col items-end bg-blue-900/10 p-3 rounded-lg border border-blue-500/30 backdrop-blur-sm">
-        <motion.div 
-          className="text-3xl font-bold tracking-wider"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {time.toLocaleTimeString()}
-        </motion.div>
-        <motion.div 
-          className="text-sm opacity-70"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {time.toLocaleDateString()}
-        </motion.div>
-      </div>
-
       {/* Navigation Bar */}
       <nav className="absolute top-0 left-0 w-full h-16 bg-gradient-to-r from-blue-900/30 via-blue-800/20 to-blue-900/30 backdrop-blur-md z-40 border-b border-blue-500/30">
-        <div className="flex justify-center items-center h-full gap-12">
-          {['HOME', 'SETTINGS', 'TUTORIALS', 'COMMUNITY', 'NEARBY'].map((item, index) => (
-            <motion.a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              className="text-[#00a8ff] text-lg tracking-wider hover:text-white transition-all duration-300 relative group"
-              whileHover={{ scale: 1.05, textShadow: "0 0 8px rgb(0, 168, 255)" }}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              {item}
+        <div className="flex justify-between items-center h-full px-8">
+          <div className="flex gap-12">
+            {['HOME', 'SETTINGS', 'TUTORIALS', 'COMMUNITY', 'NEARBY'].map((item, index) => (
+              <motion.a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="text-[#00a8ff] text-lg tracking-wider hover:text-white transition-all duration-300 relative group"
+                whileHover={{ scale: 1.05, textShadow: "0 0 8px rgb(0, 168, 255)" }}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                {item}
+                <motion.div 
+                  className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#00a8ff] to-transparent"
+                  initial={{ scaleX: 0 }}
+                  whileHover={{ scaleX: 1 }}
+                  transition={{ duration: 0.3 }}
+                />
+              </motion.a>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-8">
+            {/* Time Display - Moved inside nav bar */}
+            <div className="text-[#00a8ff] flex flex-col items-end">
               <motion.div 
-                className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#00a8ff] to-transparent"
-                initial={{ scaleX: 0 }}
-                whileHover={{ scaleX: 1 }}
-                transition={{ duration: 0.3 }}
-              />
-            </motion.a>
-          ))}
+                className="text-xl font-bold tracking-wider"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {time.toLocaleTimeString()}
+              </motion.div>
+              <motion.div 
+                className="text-xs opacity-70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {time.toLocaleDateString()}
+              </motion.div>
+            </div>
+
+            {/* Login/Register Button */}
+            <button
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              onClick={() => {
+                setShowAuth(true);
+                startCamera();
+              }}
+            >
+              {loginSuccess ? (
+                <div className="flex items-center gap-2">
+                  <span>Welcome, {currentUser}</span>
+                  <span>|</span>
+                  <span>Switch User</span>
+                </div>
+              ) : (
+                "Login / Register"
+              )}
+            </button>
+          </div>
         </div>
       </nav>
 
       {/* Left Section - Changelog */}
-      <motion.div 
-        className="absolute left-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm"
-        initial={{ x: -300 }}
-        animate={{ x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="absolute left-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm">
         <h2 className="text-[#00a8ff] text-xl mb-5 font-medium">Changelog</h2>
         <div className="text-[#00a8ff] text-sm space-y-3 bg-blue-900/10 p-4 rounded-lg border border-blue-500/20">
           <p className="text-lg font-medium">Version 7.0.1</p>
@@ -259,7 +805,7 @@ const Home = () => {
             Added new interface elements
           </p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Center Section - Main Display */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-8">
@@ -295,25 +841,37 @@ const Home = () => {
       </div>
 
       {/* Right Section - System Status */}
-      <motion.div 
-        className="absolute right-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm"
-        initial={{ x: 300 }}
-        animate={{ x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="absolute right-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm">
         <h2 className="text-[#00a8ff] text-xl mb-5 font-medium">System Status</h2>
         <div className="text-[#00a8ff] text-sm space-y-4">
           {statusMessages.map((item) => (
             <StatusItem key={item.id} text={item.text} delay={item.delay} />
           ))}
         </div>
-      </motion.div>
+      </div>
+
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {showAuth && renderAuthUI()}
+      </AnimatePresence>
 
       {/* Corner Decorative Elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-40 h-40 border-r-2 border-t-2 border-[#00a8ff]/30 rounded-tr-3xl bg-gradient-to-br from-blue-500/5 to-transparent" />
         <div className="absolute bottom-0 left-0 w-40 h-40 border-l-2 border-b-2 border-[#00a8ff]/30 rounded-bl-3xl bg-gradient-to-tl from-blue-500/5 to-transparent" />
       </div>
+
+      {/* Greeting */}
+      {loginSuccess && !showAuth && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-2xl text-[#00a8ff] font-medium backdrop-blur-sm bg-blue-900/10 px-6 py-3 rounded-lg border border-blue-500/30"
+        >
+          Hello, {currentUser}
+        </motion.div>
+      )}
     </div>
   );
 };
