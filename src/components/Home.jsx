@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import JarvisClient from '../services/jarvisClient';
 
 const Home = () => {
   const [time, setTime] = useState(new Date());
@@ -28,6 +30,98 @@ const Home = () => {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [email, setEmail] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [jarvisResponse, setJarvisResponse] = useState(null);
+  const recognitionRef = useRef(null);
+  const jarvisClientRef = useRef(null);
+
+  // Initialize JARVIS client
+  useEffect(() => {
+    const dnsServer = localStorage.getItem('jarvis_dns_server');
+    if (dnsServer) {
+      jarvisClientRef.current = new JarvisClient(dnsServer);
+    }
+  }, []);
+
+  // Process transcript with JARVIS
+  const processTranscriptWithJarvis = async (text) => {
+    if (!jarvisClientRef.current) {
+      const dnsServer = localStorage.getItem('jarvis_dns_server');
+      if (!dnsServer) {
+        console.error('DNS server not configured');
+        return;
+      }
+      jarvisClientRef.current = new JarvisClient(dnsServer);
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await jarvisClientRef.current.sendPrompt(text, {
+        type: 'voice_command',
+        priority: 'high',
+        require_metrics: true
+      });
+      setJarvisResponse(response);
+      console.log('JARVIS Response:', response);
+    } catch (error) {
+      console.error('Failed to process with JARVIS:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      recognition.onstart = () => {
+        setIsListening(true);
+        setJarvisResponse(null); // Clear previous response when starting new recognition
+      };
+
+      recognition.onresult = (event) => {
+        const current = event.resultIndex;
+        const transcriptText = event.results[current][0].transcript;
+        setTranscript(transcriptText);
+        
+        // Process the command if it's final
+        if (event.results[current].isFinal) {
+          processTranscriptWithJarvis(transcriptText);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      console.error('Speech recognition not supported in this browser');
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const toggleVoiceRecognition = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      recognitionRef.current?.start();
+    }
+  };
 
   // System checks simulation
   useEffect(() => {
@@ -664,6 +758,64 @@ const Home = () => {
     }
   };
 
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        const current = event.resultIndex;
+        const transcriptText = event.results[current][0].transcript;
+        setTranscript(transcriptText);
+        
+        // Process the command if it's final
+        if (event.results[current].isFinal) {
+          processVoiceCommand(transcriptText);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      console.error('Speech recognition not supported in this browser');
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const processVoiceCommand = (command) => {
+    const lowerCommand = command.toLowerCase().trim();
+    
+    // Add your voice commands here
+    if (lowerCommand.includes('hello') || lowerCommand.includes('hi')) {
+      console.log('Greeting detected');
+      // Add your greeting response here
+    } else if (lowerCommand.includes('settings')) {
+      window.location.href = '/settings';
+    } else if (lowerCommand.includes('home')) {
+      window.location.href = '/';
+    }
+    // Add more command processing as needed
+  };
+
   return (
     <div className="relative w-screen h-screen bg-[#000913] overflow-hidden font-roboto">
       {/* Background Grid */}
@@ -725,24 +877,28 @@ const Home = () => {
       <nav className="absolute top-0 left-0 w-full h-16 bg-gradient-to-r from-blue-900/30 via-blue-800/20 to-blue-900/30 backdrop-blur-md z-40 border-b border-blue-500/30">
         <div className="flex justify-between items-center h-full px-8">
           <div className="flex gap-12">
-            {['HOME', 'SETTINGS', 'TUTORIALS', 'COMMUNITY', 'NEARBY'].map((item, index) => (
-              <motion.a
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="text-[#00a8ff] text-lg tracking-wider hover:text-white transition-all duration-300 relative group"
-                whileHover={{ scale: 1.05, textShadow: "0 0 8px rgb(0, 168, 255)" }}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                {item}
-                <motion.div 
-                  className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#00a8ff] to-transparent"
-                  initial={{ scaleX: 0 }}
-                  whileHover={{ scaleX: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
-              </motion.a>
+            {[
+              { name: 'HOME', path: '/' },
+              { name: 'SETTINGS', path: '/settings' },
+              { name: 'TUTORIALS', path: '/tutorials' },
+              { name: 'COMMUNITY', path: '/community' },
+              { name: 'NEARBY', path: '/nearby' }
+            ].map((item, index) => (
+              <motion.div key={item.name}>
+                <Link
+                  to={item.path}
+                  className="text-[#00a8ff] text-lg tracking-wider hover:text-white transition-all duration-300 relative group"
+                  style={{ textDecoration: 'none' }}
+                >
+                  {item.name}
+                  <motion.div 
+                    className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#00a8ff] to-transparent"
+                    initial={{ scaleX: 0 }}
+                    whileHover={{ scaleX: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </Link>
+              </motion.div>
             ))}
           </div>
 
@@ -807,23 +963,33 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Center Section - Main Display */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-8">
-        {/* Top GIF */}
+      {/* Right Section - System Status */}
+      <div className="absolute right-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm">
+        <h2 className="text-[#00a8ff] text-xl mb-5 font-medium">System Status</h2>
+        <div className="text-[#00a8ff] text-sm space-y-4">
+          {statusMessages.map((item) => (
+            <StatusItem key={item.id} text={item.text} delay={item.delay} />
+          ))}
+        </div>
+
+        {/* Top GIF moved below system status */}
         <motion.div
-          className="relative p-2 rounded-lg bg-gradient-to-b from-blue-900/10 to-transparent"
+          className="relative p-2 rounded-lg bg-gradient-to-b from-blue-900/10 to-transparent mt-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
           <img
             src="https://i.pinimg.com/originals/00/54/5c/00545cb7179c504433d4c8f5e845f286.gif"
-            className="w-[180px] h-[180px] object-contain rounded-lg"
+            className="w-[180px] h-[180px] object-contain rounded-lg mx-auto"
             alt="Jarvis Interface"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#00a8ff]/10 to-transparent rounded-lg" />
         </motion.div>
-        
+      </div>
+
+      {/* Center Section - Main Display */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-8">
         {/* Main Center GIF */}
         <motion.div
           className="relative p-3 rounded-xl bg-gradient-to-b from-blue-900/10 to-transparent"
@@ -838,16 +1004,86 @@ const Home = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#00a8ff]/10 to-transparent rounded-xl" />
         </motion.div>
-      </div>
 
-      {/* Right Section - System Status */}
-      <div className="absolute right-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm">
-        <h2 className="text-[#00a8ff] text-xl mb-5 font-medium">System Status</h2>
-        <div className="text-[#00a8ff] text-sm space-y-4">
-          {statusMessages.map((item) => (
-            <StatusItem key={item.id} text={item.text} delay={item.delay} />
-          ))}
-        </div>
+        {/* Transcript Display */}
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="w-full max-w-[500px] min-h-[60px] bg-gradient-to-r from-blue-900/30 via-blue-800/20 to-blue-900/30 backdrop-blur-sm rounded-lg border border-blue-500/30 p-4 flex flex-col items-center justify-center text-center gap-2"
+          >
+            <span className="text-[#00a8ff] text-lg font-light">
+              {transcript || (isListening ? "Listening..." : "Click the microphone to speak")}
+            </span>
+            {isProcessing && (
+              <motion.div
+                className="w-4 h-4 border-2 border-t-transparent border-[#00a8ff] rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+            )}
+            {jarvisResponse && !isProcessing && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-green-400 text-sm mt-2"
+              >
+                {typeof jarvisResponse === 'string' 
+                  ? jarvisResponse 
+                  : JSON.stringify(jarvisResponse, null, 2)}
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Microphone Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={toggleVoiceRecognition}
+          className={`w-16 h-16 bg-[#00a8ff]/20 hover:bg-[#00a8ff]/30 border-2 ${
+            isListening ? 'border-red-500/50 bg-red-500/20' : 'border-[#00a8ff]/50'
+          } rounded-full flex items-center justify-center text-[#00a8ff] transition-all duration-300 group mt-4 relative`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-8 w-8 group-hover:text-white transition-colors ${
+              isListening ? 'text-red-500' : 'text-[#00a8ff]'
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+            />
+          </svg>
+          {isListening && (
+            <motion.div
+              className="absolute -inset-1 border-2 border-red-500/50 rounded-full"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          )}
+        </motion.button>
+
+        {/* Voice Recognition Feedback */}
+        <AnimatePresence>
+          {isListening && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="text-[#00a8ff] text-sm mt-2 bg-blue-900/20 px-4 py-2 rounded-lg border border-blue-500/30"
+            >
+              {transcript || "Listening..."}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Auth Modal */}
