@@ -1,0 +1,14 @@
+fastapi==0.109.2
+uvicorn==0.15.0
+python-multipart==0.0.5
+requests==2.26.0
+pillow==10.2.0
+python-jose==3.3.0
+python-dotenv==0.19.0
+aiofiles==0.7.0
+boto3==1.18.44
+pytest==6.2.5
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-magic-bin==0.4.14
+aiohttp==3.9.1 

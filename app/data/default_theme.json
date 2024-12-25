@@ -1,0 +1,80 @@
+{
+    "id": "default",
+    "name": "JARVIS Default Theme",
+    "description": "The default JARVIS UI theme with a futuristic design",
+    "components": {
+        "app": {
+            "background": "#0a0a0a",
+            "text": "#ffffff"
+        },
+        "navbar": {
+            "background": "#1a1a1a",
+            "text": "#ffffff",
+            "activeText": "#00ff00",
+            "hoverBackground": "#2a2a2a"
+        },
+        "sidebar": {
+            "background": "#1a1a1a",
+            "text": "#ffffff",
+            "activeBackground": "#2a2a2a",
+            "activeText": "#00ff00",
+            "hoverBackground": "#2a2a2a"
+        },
+        "button": {
+            "primary": {
+                "background": "#00ff00",
+                "text": "#000000",
+                "hoverBackground": "#00cc00"
+            },
+            "secondary": {
+                "background": "#2a2a2a",
+                "text": "#ffffff",
+                "hoverBackground": "#3a3a3a"
+            },
+            "danger": {
+                "background": "#ff0000",
+                "text": "#ffffff",
+                "hoverBackground": "#cc0000"
+            }
+        },
+        "card": {
+            "background": "#1a1a1a",
+            "text": "#ffffff",
+            "border": "#2a2a2a"
+        },
+        "input": {
+            "background": "#2a2a2a",
+            "text": "#ffffff",
+            "border": "#3a3a3a",
+            "focusBorder": "#00ff00",
+            "placeholder": "#808080"
+        },
+        "modal": {
+            "background": "#1a1a1a",
+            "text": "#ffffff",
+            "overlay": "rgba(0, 0, 0, 0.8)"
+        },
+        "toast": {
+            "success": {
+                "background": "#00ff00",
+                "text": "#000000"
+            },
+            "error": {
+                "background": "#ff0000",
+                "text": "#ffffff"
+            },
+            "warning": {
+                "background": "#ffff00",
+                "text": "#000000"
+            },
+            "info": {
+                "background": "#0000ff",
+                "text": "#ffffff"
+            }
+        },
+        "loading": {
+            "spinnerColor": "#00ff00",
+            "background": "rgba(0, 0, 0, 0.8)"
+        }
+    }
+} 

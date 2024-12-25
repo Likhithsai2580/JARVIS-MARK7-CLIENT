@@ -1,5 +1,25 @@
 # Changelog
 
+## [7.0.2] - 25-12-2024
+
+### Enhanced
+- User Interface
+  - Dynamic changelog integration with markdown parsing
+  - Improved changelog display with nested sections
+  - Added scrollable changelog container
+  - Better formatting for changelog entries
+
+### Technical Improvements
+- Vite Integration
+  - Added support for markdown file loading
+  - Implemented public directory file serving
+  - Enhanced error handling for file loading
+  - Improved markdown parsing logic
+
+### TODO
+- Integrate theme management
+- Integrate plugin management
+
 ## [7.0.1] - 07-12-2024
 
 ### Added

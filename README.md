@@ -1,82 +1,96 @@
-# JARVIS MARK 7
+# JARVIS Theme Service
 
-## Description
-JARVIS MARK 7 is a face authentication system with a graphical user interface (GUI) built using React and Tailwind CSS. The project includes a client-side application for face authentication and a web-based GUI for user interaction.
+A FastAPI-based service for managing JARVIS UI themes using Figma designs.
 
 ## Features
-- Face authentication using OpenCV and Haar cascades
-- User registration with face image and password
-- Traditional login with username and password
-- Real-time camera preview and face detection
-- Liveness detection to prevent spoofing
-- Responsive web-based GUI built with React and Tailwind CSS
-- Animated UI elements using Framer Motion
+
+- Extract UI components and styles from Figma designs
+- Process and optimize theme assets
+- Apply themes to the JARVIS UI
+- Reset to default theme
+- Theme history management
+
+## Prerequisites
+
+- Python 3.8+
+- Figma API access token
+- Virtual environment (recommended)
 
 ## Installation
 
-### Prerequisites
-- Python 3.x
-- Node.js and npm
-
-### Client Setup
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/Likhithsai2580/JARVIS-MARK7-CLIENT.git
-   cd JARVIS-MARK7-CLIENT/client
-   ```
+```bash
+git clone <repository-url>
+cd jarvis-theme-service
+```
 
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+venv\Scripts\activate     # Windows
+```
 
-### GUI Setup
-1. Navigate to the `src` directory:
-   ```bash
-   cd ../src
-   ```
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-2. Install Node.js dependencies:
-   ```bash
-   npm install
-   ```
+4. Set up environment variables:
+- Copy `.env.example` to `.env`
+- Add your Figma API key to `.env`:
+```
+FIGMA_API_KEY=your_figma_api_key_here
+```
 
-## Usage
+## Running the Service
 
-### Running the Client
-1. Navigate to the `client` directory:
-   ```bash
-   cd ../client
-   ```
+1. Start the FastAPI server:
+```bash
+uvicorn app.main:app --reload
+```
 
-2. Run the client application:
-   ```bash
-   python main.py
-   ```
+2. Access the API documentation:
+- OpenAPI UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-### Running the GUI
-1. Navigate to the `src` directory:
-   ```bash
-   cd ../src
-   ```
+## API Endpoints
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+- `GET /`: Service information
+- `GET /health`: Health check
+- `GET /api/themes`: List all themes
+- `GET /api/themes/current`: Get current theme
+- `POST /api/themes`: Create new theme from Figma URL
+- `PUT /api/themes/{theme_id}`: Update theme
+- `DELETE /api/themes/{theme_id}`: Delete theme
+- `POST /api/themes/apply/{theme_id}`: Apply theme
+- `POST /api/themes/reset`: Reset to default theme
 
-3. Open your browser and navigate to `http://localhost:3000`.
+## Development
 
-### Using Face Authentication
-1. Register a new user by capturing face images and providing a username and password.
-2. Login using face authentication or traditional username and password.
+1. Run tests:
+```bash
+pytest
+```
+
+2. Format code:
+```bash
+black .
+```
+
+3. Check types:
+```bash
+mypy .
+```
 
 ## Contributing
-Contributions are welcome! Please follow these steps to contribute:
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix.
-3. Commit your changes and push the branch to your fork.
-4. Create a pull request with a detailed description of your changes.
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+This project is licensed under the MIT License - see the LICENSE file for details.

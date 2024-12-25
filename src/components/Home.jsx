@@ -35,6 +35,7 @@ const Home = () => {
   const [jarvisResponse, setJarvisResponse] = useState(null);
   const recognitionRef = useRef(null);
   const jarvisClientRef = useRef(null);
+  const [changelog, setChangelog] = useState([]);
 
   // Initialize JARVIS client
   useEffect(() => {
@@ -816,6 +817,85 @@ const Home = () => {
     // Add more command processing as needed
   };
 
+  // Parse changelog
+  useEffect(() => {
+    const parseChangelog = async () => {
+      try {
+        // Load the changelog from the public directory
+        const response = await fetch('/CHANGELOG.md');
+        if (!response.ok) {
+          throw new Error('Failed to load changelog');
+        }
+        const text = await response.text();
+        const sections = [];
+        let currentVersion = null;
+        let currentSection = null;
+
+        text.split('\n').forEach(line => {
+          // Skip empty lines and the title
+          if (!line.trim() || line.startsWith('# ')) return;
+
+          // Version header
+          if (line.startsWith('## [')) {
+            if (currentVersion) {
+              sections.push(currentVersion);
+            }
+            const versionMatch = line.match(/## \[(.*?)\] - (.*)/);
+            if (versionMatch) {
+              currentVersion = {
+                version: versionMatch[1],
+                date: versionMatch[2],
+                sections: []
+              };
+            }
+          }
+          // Main section (Added, Enhanced, etc.)
+          else if (line.startsWith('### ')) {
+            if (currentSection) {
+              currentVersion.sections.push(currentSection);
+            }
+            currentSection = {
+              title: line.replace('### ', ''),
+              items: []
+            };
+          }
+          // List items
+          else if (line.startsWith('- ')) {
+            if (currentSection) {
+              currentSection.items.push(line.replace('- ', ''));
+            }
+          }
+          // Sub-items
+          else if (line.startsWith('  - ')) {
+            if (currentSection && currentSection.items.length > 0) {
+              const lastItem = currentSection.items[currentSection.items.length - 1];
+              if (!Array.isArray(lastItem)) {
+                currentSection.items[currentSection.items.length - 1] = [lastItem];
+              }
+              currentSection.items[currentSection.items.length - 1].push(
+                line.replace('  - ', '')
+              );
+            }
+          }
+        });
+
+        // Push final sections
+        if (currentSection) {
+          currentVersion.sections.push(currentSection);
+        }
+        if (currentVersion) {
+          sections.push(currentVersion);
+        }
+
+        setChangelog(sections);
+      } catch (error) {
+        console.error('Error loading changelog:', error);
+      }
+    };
+
+    parseChangelog();
+  }, []);
+
   return (
     <div className="relative w-screen h-screen bg-[#000913] overflow-hidden font-roboto">
       {/* Background Grid */}
@@ -944,22 +1024,41 @@ const Home = () => {
       </nav>
 
       {/* Left Section - Changelog */}
-      <div className="absolute left-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm">
+      <div className="absolute left-5 top-20 w-[300px] h-[calc(100vh-100px)] bg-gradient-to-b from-blue-900/10 to-blue-950/5 border border-blue-500/30 p-5 z-20 rounded-lg backdrop-blur-sm overflow-y-auto">
         <h2 className="text-[#00a8ff] text-xl mb-5 font-medium">Changelog</h2>
         <div className="text-[#00a8ff] text-sm space-y-3 bg-blue-900/10 p-4 rounded-lg border border-blue-500/20">
-          <p className="text-lg font-medium">Version 7.0.1</p>
-          <p className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-[#00a8ff] rounded-full" />
-            Enhanced neural processing
-          </p>
-          <p className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-[#00a8ff] rounded-full" />
-            Improved response time
-          </p>
-          <p className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-[#00a8ff] rounded-full" />
-            Added new interface elements
-          </p>
+          <div className="space-y-4">
+            {changelog.map((version, vIndex) => (
+              <div key={vIndex}>
+                <p className="text-lg font-medium">[{version.version}] - {version.date}</p>
+                <div className="mt-2 space-y-4">
+                  {version.sections.map((section, sIndex) => (
+                    <div key={sIndex}>
+                      <p className="text-base font-medium text-blue-400 mb-2">{section.title}</p>
+                      <div className="space-y-2 pl-4">
+                        {section.items.map((item, iIndex) => (
+                          <div key={iIndex}>
+                            {Array.isArray(item) ? (
+                              <div>
+                                <p className="font-medium">{item[0]}</p>
+                                <ul className="list-disc pl-4 text-xs opacity-80">
+                                  {item.slice(1).map((subItem, subIndex) => (
+                                    <li key={subIndex}>{subItem}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <p className="text-sm opacity-80">{item}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

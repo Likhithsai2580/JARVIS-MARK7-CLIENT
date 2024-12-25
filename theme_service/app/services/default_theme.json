@@ -1,0 +1,97 @@
+{
+  "name": "JARVIS Default",
+  "author": "System",
+  "version": "1.0.0",
+  "components": {
+    "MainBackground": {
+      "backgroundColor": "#000913",
+      "backgroundPattern": "grid",
+      "patternOpacity": 0.1
+    },
+    "NavigationBar": {
+      "background": "gradient(to-r, from-blue-900/30, via-blue-800/20, to-blue-900/30)",
+      "blur": "md",
+      "borderColor": "blue-500/30",
+      "icons": "assets.icons.navigation"
+    },
+    "ChangelogPanel": {
+      "background": "gradient-to-b from-blue-900/10 to-blue-950/5",
+      "borderColor": "blue-500/30",
+      "blur": "sm",
+      "textColor": "#00a8ff",
+      "secondaryTextColor": "blue-400"
+    },
+    "SystemStatusPanel": {
+      "background": "gradient-to-b from-blue-900/10 to-blue-950/5",
+      "borderColor": "blue-500/30",
+      "blur": "sm",
+      "textColor": "#00a8ff"
+    },
+    "CenterDisplay": {
+      "background": "gradient-to-b from-blue-900/10 to-transparent",
+      "shadow": "0_0_30px_rgba(0,168,255,0.3)"
+    },
+    "VoiceInterface": {
+      "background": "gradient-to-r from-blue-900/30 via-blue-800/20 to-blue-900/30",
+      "textColor": "#00a8ff",
+      "successColor": "green-400",
+      "errorColor": "red-400"
+    },
+    "AuthModal": {
+      "background": "gray-900/95",
+      "blur": "md",
+      "textColor": "#00a8ff",
+      "inputBackground": "gray-800",
+      "buttonBackground": "blue-600",
+      "buttonHover": "blue-700"
+    },
+    "SystemCheck": {
+      "successColor": "green-400",
+      "errorColor": "red-400",
+      "loadingColor": "#00a8ff"
+    },
+    "BootSequence": {
+      "titleColor": "#00a8ff",
+      "progressBackground": "blue-900/20",
+      "progressFill": "#00a8ff"
+    },
+    "MicrophoneButton": {
+      "background": "#00a8ff/20",
+      "borderColor": "#00a8ff/50",
+      "activeBackground": "red-500/20",
+      "activeBorderColor": "red-500/50"
+    },
+    "TimeDisplay": {
+      "textColor": "#00a8ff",
+      "secondaryOpacity": 0.7
+    },
+    "ToastNotification": {
+      "success": {
+        "background": "blue-900/90",
+        "icon": "assets.icons.status.success"
+      },
+      "error": {
+        "background": "red-900/90",
+        "icon": "assets.icons.status.error"
+      },
+      "warning": {
+        "background": "yellow-900/90",
+        "icon": "assets.icons.status.warning"
+      }
+    },
+    "SettingsPanel": {
+      "background": "gradient-to-b from-blue-900/10 to-blue-950/5",
+      "borderColor": "blue-500/30",
+      "blur": "sm",
+      "inputBackground": "gray-800",
+      "buttonPrimary": {
+        "background": "blue-600",
+        "hoverBackground": "blue-700"
+      },
+      "buttonDanger": {
+        "background": "red-600",
+        "hoverBackground": "red-700"
+      }
+    }
+  }
+} 
