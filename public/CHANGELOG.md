@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.0.3] - 28-12-2024
+
+### Added
+- Figma to React with Python
+
+### TODO
+- Integrate theme management with Figma to React with Pytho
+- Integrate plugin management
+
+
 ## [7.0.2] - 25-12-2024
 
 ### Enhanced
@@ -15,6 +25,10 @@
   - Implemented public directory file serving
   - Enhanced error handling for file loading
   - Improved markdown parsing logic
+
+### TODO
+- Integrate theme management
+- Integrate plugin management
 
 ## [7.0.1] - 07-12-2024
 
